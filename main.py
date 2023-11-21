@@ -52,5 +52,5 @@ def main():
 
 
 if __name__=="__main__":
-    chainsaw_domain_directory = "../data_for_domdet/discover_cath_domains/leishmania_chainsaw_domains"
+    chainsaw_domain_directory = "../leishmania_chainsaw_domains"
     main()
