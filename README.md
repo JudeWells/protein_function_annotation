@@ -15,3 +15,5 @@ from the PDB file (where there are multiple PDB files for each protein - each on
 Residue indexes can be extracted from columns 23-26 in ATOM lines in the PDB file.
 Residue names can be extracted from columns 18-20 in ATOM lines.
 
+Alternatively the Chainsaw predicted domains (written as residue indices) can be read
+from the csv files in chainsaw_domains_csv in the google drive.
