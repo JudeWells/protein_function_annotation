@@ -12,6 +12,7 @@
 import os
 import re
 import csv
+import json
 import requests
 import xml.etree.ElementTree as ET
 
@@ -19,9 +20,9 @@ import xml.etree.ElementTree as ET
 # Set path
 # =======================================================================================================
 directory_path = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw_csv"
-output_file_path = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/uniprot_ids.csv"
-annotation_file_path = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/ann.csv"
-no_annotation_file_path = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/no_ann.csv"
+output_file_path = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/uniprot_ids.cs"
+matches_output_directory = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/ann"
+no_matches_output_directory  = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/no_ann"
 
 # =======================================================================================================
 # Extract uniport_id from chainsaw
@@ -73,71 +74,105 @@ process_csv_files(directory_path, output_file_path)
 # Find functional annotations Interpro database
 # =======================================================================================================
 # -------------------------------------------------------------------------------------------------------
+# Loop uniprot_ids
+# -------------------------------------------------------------------------------------------------------
+def process_uniprot_ids_from_csv(output_file_path):
+    uniprot_ids = []
+
+    # Read UniProt IDs from the CSV file
+    with open(output_file_path, 'r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for row in csv_reader:
+            uniprot_id = row.get('UniProt ID', '')
+            if uniprot_id:
+                uniprot_ids.append(uniprot_id)
+    return uniprot_ids
+# -------------------------------------------------------------------------------------------------------
 # Define function get_interpro_annotations
 # -------------------------------------------------------------------------------------------------------
 def get_interpro_annotations(uniprot_id):
-    interpro_api_url = f"https://www.ebi.ac.uk/interpro/api/protein/{uniprot_id}"
+    interpro_api_url = f"https://www.ebi.ac.uk/interpro/api/protein/UniProt/{uniprot_id}"
     response = requests.get(interpro_api_url)
+    print(f"Status code for {uniprot_id}: {response.status_code}")
     if response.status_code == 200:
-        data = response.json()
-        if 'entries' in data:
-            return data['entries']
-    return None
+        return response.json()
+    else:
+        print(f"Warning: The server responded with a non-200 status code ({response.status_code}).")
+        return None
 # -------------------------------------------------------------------------------------------------------
-# Define function process_uniprot_ids
+# Define save json information
 # -------------------------------------------------------------------------------------------------------
-def process_uniprot_ids(output_file_path, annotation_file_path, no_annotation_file_path):
+def save_json_data(directory, uniprot_id, json_data):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    json_file_path = os.path.join(directory, f"{uniprot_id}_data.json")
+    with open(json_file_path, 'w') as json_file:
+        json.dump(json_data, json_file, indent=4)
 # -------------------------------------------------------------------------------------------------------
-# Create annotation file
+# Define main
 # -------------------------------------------------------------------------------------------------------
-    with open(annotation_file_path, 'w', newline='') as annotation_csv:
-        annotation_writer = csv.writer(annotation_csv)
-        annotation_writer.writerow(['UniProt ID', 'Functional Annotation'])
+def main():
 # -------------------------------------------------------------------------------------------------------
-# Create no annotation file
+# Get UniProt IDs from the CSV file
 # -------------------------------------------------------------------------------------------------------
-        with open(no_annotation_file_path, 'w', newline='') as no_annotation_csv:
-            no_annotation_writer = csv.writer(no_annotation_csv)
-            no_annotation_writer.writerow(['UniProt ID'])
+    uniprot_ids = process_uniprot_ids_from_csv(output_file_path)
 # -------------------------------------------------------------------------------------------------------
-# Get uniprot_id
+# Process each UniProt ID
 # -------------------------------------------------------------------------------------------------------
-            with open(output_file_path, 'r') as csv_file:
-                csv_reader = csv.DictReader(csv_file)
-                uniprot_ids = [row.get('UniProt ID', '') for row in csv_reader]
+    for uniprot_id in uniprot_ids:
+        annotations = get_interpro_annotations(uniprot_id)
+        print(annotations)
+        print(f"\nUniProt ID: {uniprot_id}")
 # -------------------------------------------------------------------------------------------------------
-# Loop over uniprot_ids
+# If there are annotations
 # -------------------------------------------------------------------------------------------------------
-                for uniprot_id in uniprot_ids:
-                    annotations = get_interpro_annotations(uniprot_id)
-                    print(f"\nUniProt ID: {uniprot_id}")
+        if annotations:
+          print("Functional annotations:")
 # -------------------------------------------------------------------------------------------------------
-# If annotation
-# -------------------------------------------------------------------------------------------------------    
-                if annotations is not None:  
-                        if annotations:
-                            print("Functional annotations:")
-                            for entry in annotations:
-                                print(f"- {entry['name']} ({entry['type']})")
-                                annotation_writer.writerow([uniprot_id, f"{entry['name']} ({entry['type']})"])
-                        else:
-                            print("No functional annotations found.")
-                            if all(
-                                entry['name'].lower() == 'uncharacterized' and entry.get('go_terms') == 'None' 
-                                for entry in annotations
-                            ):
-                                print("Adding to no annotation file.")
-                                no_annotation_writer.writerow([uniprot_id])
+# Check if name is 'uncharacterized' and go_terms='None'
 # -------------------------------------------------------------------------------------------------------
-# If no annotation
+          if annotations and 'metadata' in annotations:
+             metadata = annotations['metadata']
+             if 'name' in metadata:
+               print("Name:", metadata['name'])
+               if metadata['name'].lower() == 'uncharacterized protein' and metadata.get('go_terms') is None:
+                  print("Conditions met, saving to no matches file.")
+                  save_json_data(no_matches_output_directory, uniprot_id, {})
+               else:
+                  print("Conditions not met, saving to matches file.")
+                  save_json_data(matches_output_directory, uniprot_id, {})
+             else:
+               print("Name not available.")
+          else:
+            print("Result is None or missing metadata.")
 # -------------------------------------------------------------------------------------------------------
-                else:
-                        print("Error: No annotations available for this UniProt ID.")
-                        no_annotation_writer.writerow([uniprot_id])
+# If no annotations
 # -------------------------------------------------------------------------------------------------------
-# Call function process_uniprot_ids
-# -------------------------------------------------------------------------------------------------------
-process_uniprot_ids(output_file_path, annotation_file_path, no_annotation_file_path)
+        else:
+           print("No functional annotations found. Saving to no matches file.")
+           save_json_data(no_matches_output_directory, uniprot_id, {})
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
