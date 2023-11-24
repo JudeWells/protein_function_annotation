@@ -151,7 +151,9 @@ def main():
         else:
            print("No functional annotations found. Saving to no matches file.")
            save_json_data(no_matches_output_directory, uniprot_id, annotations)
-
+# -------------------------------------------------------------------------------------------------------
+# Call main function
+# -------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     main()
 
