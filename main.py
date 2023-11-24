@@ -137,10 +137,10 @@ def main():
                print("Name:", metadata['name'])
                if metadata['name'].lower() == 'uncharacterized protein' and metadata.get('go_terms') is None:
                   print("Conditions met, saving to no matches file.")
-                  save_json_data(no_matches_output_directory, uniprot_id, {})
+                  save_json_data(no_matches_output_directory, uniprot_id, annotations)
                else:
                   print("Conditions not met, saving to matches file.")
-                  save_json_data(matches_output_directory, uniprot_id, {})
+                  save_json_data(matches_output_directory, uniprot_id, annotations)
              else:
                print("Name not available.")
           else:
@@ -150,7 +150,7 @@ def main():
 # -------------------------------------------------------------------------------------------------------
         else:
            print("No functional annotations found. Saving to no matches file.")
-           save_json_data(no_matches_output_directory, uniprot_id, {})
+           save_json_data(no_matches_output_directory, uniprot_id, annotations)
 
 if __name__ == "__main__":
     main()
