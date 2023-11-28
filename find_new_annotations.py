@@ -1,7 +1,105 @@
-import os
+# =======================================================================================================
+# =======================================================================================================
+# Topic: Find new functional annotations - chainsaw 
+# Date: 28/11/2023
+# =======================================================================================================
+# =======================================================================================================
 
+# =======================================================================================================
+# Import necessary statements
+# =======================================================================================================
+import os
+import shutil
 import numpy as np
 import pandas as pd
+
+# =======================================================================================================
+# Set path
+# =======================================================================================================
+no_matches_output_directory  = "/Users/liobaberndt/Desktop/Github/leishmania_chainsaw/no_ann"
+foldseek_dir = '/Users/liobaberndt/Desktop/Github/leishmania_foldseek_results'
+output_folder = '/Users/liobaberndt/Desktop/Github/foldseek_matching_files'
+# =======================================================================================================
+# Look at foldseek
+# =======================================================================================================
+def main():
+    os.makedirs(output_folder, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------
+# Load uniport_ids
+# -------------------------------------------------------------------------------------------------------
+    for fname in os.listdir(no_matches_output_directory):
+        uniprot_id = fname.split('_data')[0]
+# -------------------------------------------------------------------------------------------------------
+# Look for uniprot_ids in foldseek folder
+# -------------------------------------------------------------------------------------------------------
+        foldseek_df = look_for_foldseek_match(uniprot_id)
+# -------------------------------------------------------------------------------------------------------
+# No foldseek match 
+# -------------------------------------------------------------------------------------------------------
+        if foldseek_df is None:
+            print("None")
+            continue
+# -------------------------------------------------------------------------------------------------------
+# Foldseek match and log10 evalue of less than -5
+# -------------------------------------------------------------------------------------------------------
+        if foldseek_df.log10_evalue.min() < -5:
+            print(uniprot_id)
+            copy_matching_files(uniprot_id)
+# -------------------------------------------------------------------------------------------------------
+# Define look_for_foldseek_match
+# -------------------------------------------------------------------------------------------------------
+def look_for_foldseek_match(uniprot_id):
+# -------------------------------------------------------------------------------------------------------
+# Names foldseek cols
+# -------------------------------------------------------------------------------------------------------
+    foldseek_results_cols = ['query_id', 'subject_id', 'pct_id', 'aln_len',
+                             'mismatches', 'gap_openings', 'q_start', 'q_end',
+                             's_start', 's_end', 'evalue', 'bit_score']
+    foldseek_files = [f for f in os.listdir(foldseek_dir) if uniprot_id in f]
+# -------------------------------------------------------------------------------------------------------
+# No matches
+# -------------------------------------------------------------------------------------------------------
+    if len(foldseek_files) == 0:
+        return None
+    else:
+        for fname in foldseek_files:
+# -------------------------------------------------------------------------------------------------------
+# Load folseek file
+# -------------------------------------------------------------------------------------------------------
+            try:
+                df = pd.read_csv(os.path.join(foldseek_dir, fname), header=None, sep='\t')
+            except pd.errors.EmptyDataError:
+                continue
+            if len(df) > 0:
+                df.columns = foldseek_results_cols
+# -------------------------------------------------------------------------------------------------------
+# Find log10 value
+# -------------------------------------------------------------------------------------------------------
+                df['log10_evalue'] = df.evalue.apply(lambda x: np.log10(x))
+                return df
+# -------------------------------------------------------------------------------------------------------
+# Define copy_matching_files
+# -------------------------------------------------------------------------------------------------------
+def copy_matching_files(uniprot_id):
+    foldseek_files = os.listdir(foldseek_dir)
+    condition = lambda fname: f'F-{uniprot_id}-F' in fname
+    for fname in foldseek_files:
+        if condition(fname):
+            shutil.copy(
+                os.path.join(foldseek_dir, fname),
+                os.path.join(output_folder, fname)
+            )
+# -------------------------------------------------------------------------------------------------------
+# Call main()
+# -------------------------------------------------------------------------------------------------------
+if __name__ == '__main__':
+    main()
+
+# =======================================================================================================
+# Search Interpro for matches
+# =======================================================================================================
+
+
 
 """
 Checks uniprot IDs in the no_annotation folder 
@@ -14,35 +112,3 @@ there is any annotation in InterPro (or similar)
 
 """
 
-def main():
-    for fname in os.listdir('no_annotation'):
-        uniprot_id = fname.split('_data')[0]
-        foldseek_df = look_for_foldseek_match(uniprot_id)
-        if foldseek_df is None:
-            continue
-        if foldseek_df.log10_evalue.min() < -10:
-            bp=1
-
-def look_for_foldseek_match(uniprot_id):
-    foldseek_results_cols = ['query_id', 'subject_id', 'pct_id', 'aln_len',
-                             'mismatches', 'gap_openings', 'q_start', 'q_end',
-                             's_start', 's_end', 'evalue', 'bit_score']
-
-
-    foldseek_files = [f for f in os.listdir(foldseek_dir) if uniprot_id in f]
-    if len(foldseek_files) == 0:
-        return None
-    else:
-        for fname in foldseek_files:
-            try:
-                df = pd.read_csv(os.path.join(foldseek_dir, fname), header=None, sep='\t')
-            except pd.errors.EmptyDataError:
-                continue
-            if len(df) > 0:
-                df.columns = foldseek_results_cols
-                df['log10_evalue'] = df.evalue.apply(lambda x: np.log10(x))
-                return df
-
-if __name__ == '__main__':
-    foldseek_dir = '../data_for_domdet/discover_cath_domains/leishmania_chainsaw_foldseek_preds/leishmania_foldseek_results'
-    main()
