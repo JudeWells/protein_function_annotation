@@ -51,10 +51,11 @@ def main():
         if foldseek_df.log10_evalue.min() < -5:
             print(uniprot_id)
             copy_matching_files(uniprot_id)
+            selected_rows = foldseek_df[foldseek_df.log10_evalue < -5]
 # -------------------------------------------------------------------------------------------------------
 # Get subject_id for matches log10 value of less than -5
 # -------------------------------------------------------------------------------------------------------
-            for _, row in foldseek_df.iterrows():
+            for _, row in selected_rows.iterrows():
                 subject_id = row['subject_id']
                 first_four_letters = subject_id[:4]
 # -------------------------------------------------------------------------------------------------------
@@ -62,7 +63,7 @@ def main():
 # -------------------------------------------------------------------------------------------------------
                 api_data = query_pdbe_api(first_four_letters)
                 pdb_id = row['subject_id'].split('_')[0]
-                output_filename = f"{pdb_id}_combined_data.json"
+                output_filename = f"{uniprot_id}_{first_four_letters}_combined_data.json"
                 output_filepath = os.path.join(combined_data_folder, output_filename)
 # -------------------------------------------------------------------------------------------------------
 # Combine information foldseek and api_data + save
